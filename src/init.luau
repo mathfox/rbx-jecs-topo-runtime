@@ -283,6 +283,8 @@ type LoopProperties = {
 	_systemErrors: { [System]: any },
 	trackErrors: boolean,
 
+	_skipSystems: { [System]: boolean },
+
 	profiling: { [System]: SystemSamples } | nil,
 }
 
@@ -293,13 +295,15 @@ type LoopImpl = {
 
 	scheduleSystem: (self: Loop, system: System) -> System,
 	evictSystem: (self: Loop, system: System) -> System,
+	replaceSystem: (self: Loop, old: System, new: System) -> (),
 
-	begin: (
-		self: Loop,
-		events: { [string]: { Connect: (...any) -> ...any, [any]: any } }
-	) -> {
-		[string]: RBXScriptConnection,
-	},
+	--begin: (
+	--	self: Loop,
+	--	events: { [string]: { Connect: (...any) -> ...any, [any]: any } }
+	--) -> {
+	--	[string]: RBXScriptConnection,
+	--},
+	begin: (self: Loop, event: { Connect: (...any) -> ...any, [any]: any }) -> RBXScriptConnection,
 }
 
 type Loop = typeof(setmetatable({} :: LoopProperties, (nil :: any) :: LoopImpl))
@@ -321,6 +325,7 @@ function Loop.new(...)
 		_systemState = {},
 		_systems = {},
 		_systemErrors = {},
+		_skipSystems = {},
 		trackErrors = true,
 		profiling = nil,
 	}, Loop)
@@ -355,110 +360,156 @@ function Loop:evictSystem(system)
 	return system
 end
 
-function Loop:begin(events)
-	local connections: { [string]: RBXScriptConnection } = {}
+--[=[
+	Replaces an older version of a system with a newer version of the system. Internal system storage (which is used
+	by hooks) will be moved to be associated with the new system. This is intended to be used for hot reloading.
 
-	for eventName, event in events do
-		local lastTime = os.clock()
+	@param old System
+	@param new System
+]=]
+function Loop:replaceSystem(old, new)
+	local systemIndex = table.find(self._systems, old)
 
-		local function stepSystems()
-			local currentTime = os.clock()
-			local deltaTime = currentTime - lastTime
-			lastTime = currentTime
-
-			for _, system in self._systems do
-				start({
-					system = self._systemState[system],
-					frame = {
-						deltaTime = deltaTime,
-					},
-					currentSystem = system,
-				}, function()
-					debug.profilebegin("system: " .. systemName(system))
-
-					local thread = coroutine.create(system)
-
-					local startTime = os.clock()
-					local success, errorValue = coroutine.resume(thread, unpack(self._state, 1, self._stateLength))
-
-					local profiling = self.profiling
-
-					if profiling then
-						local duration = os.clock() - startTime
-
-						local samples = profiling[system]
-						if samples == nil then
-							samples = {}
-							profiling[system] = samples
-						end
-
-						samples[samples.index or 1] = duration
-
-						local MAX_SAMPLES = 60
-						samples.index = if samples.index then (samples.index % MAX_SAMPLES) + 1 else 1
-					end
-
-					if coroutine.status(thread) ~= "dead" then
-						coroutine.close(thread)
-
-						task.spawn(
-							error,
-							("System %s yielded! Its thread has been closed. " .. "Yielding in systems is not allowed."):format(
-								systemName(system)
-							)
-						)
-					end
-
-					if not success then
-						if os.clock() - recentErrorLastTime > 10 then
-							recentErrorLastTime = os.clock()
-							recentErrors = {}
-						end
-
-						local errorString = systemName(system)
-							.. ": "
-							.. (errorValue :: string)
-							.. "\n"
-							.. debug.traceback(thread)
-
-						if not recentErrors[errorString] then
-							task.spawn(error, errorString)
-							warn("The above error will be suppressed for the next 10 seconds")
-							recentErrors[errorString] = true
-						end
-
-						if self.trackErrors then
-							if self._systemErrors[system] == nil then
-								self._systemErrors[system] = {}
-							end
-
-							local errorStorage = self._systemErrors[system]
-							local lastError = errorStorage[#errorStorage]
-
-							if lastError and lastError.error == errorString then
-								lastError.when = os.time()
-							else
-								table.insert(errorStorage, {
-									error = errorString,
-									when = os.time(),
-								})
-
-								if #errorStorage > 100 then
-									table.remove(errorStorage, 1)
-								end
-							end
-						end
-					end
-
-					debug.profileend()
-				end)
-			end
-		end
-
-		connections[eventName] = event:Connect(stepSystems)
+	if not systemIndex then
+		error("Before system does not exist!")
 	end
 
-	return connections
+	table.remove(self._systems, systemIndex)
+	table.insert(self._systems, new)
+
+	self._systemState[new] = self._systemState[old] or {}
+	self._systemState[old] = nil
+
+	if self._skipSystems[old] then
+		self._skipSystems[old] = nil
+		self._skipSystems[new] = true
+	end
+
+	for _, system in self._systems do
+		if type(system) == "table" and system.after then
+			local index = table.find(system.after, old)
+
+			if index then
+				system.after[index] = new
+			end
+		end
+	end
+end
+
+function Loop:begin(event)
+	--local connections: { [string]: RBXScriptConnection } = {}
+
+	--for eventName, event in events do
+	local lastTime = os.clock()
+
+	local function stepSystems()
+		local currentTime = os.clock()
+		local deltaTime = currentTime - lastTime
+		lastTime = currentTime
+
+		for _, system in self._systems do
+			start({
+				system = self._systemState[system],
+				frame = {
+					deltaTime = deltaTime,
+				},
+				currentSystem = system,
+			}, function()
+				local profiling = self.profiling
+
+				if self._skipSystems[system] then
+					if profiling then
+						profiling[system] = nil
+					end
+
+					return
+				end
+
+				debug.profilebegin("system: " .. systemName(system))
+
+				local thread = coroutine.create(system)
+
+				local startTime = os.clock()
+				local success, errorValue = coroutine.resume(thread, unpack(self._state, 1, self._stateLength))
+
+				if profiling then
+					local duration = os.clock() - startTime
+
+					local samples = profiling[system]
+					if samples == nil then
+						samples = {}
+						profiling[system] = samples
+					end
+
+					samples[samples.index or 1] = duration
+
+					local MAX_SAMPLES = 60
+					samples.index = if samples.index then (samples.index % MAX_SAMPLES) + 1 else 1
+				end
+
+				if coroutine.status(thread) ~= "dead" then
+					coroutine.close(thread)
+
+					task.spawn(
+						error,
+						("System %s yielded! Its thread has been closed. " .. "Yielding in systems is not allowed."):format(
+							systemName(system)
+						)
+					)
+				end
+
+				if not success then
+					if os.clock() - recentErrorLastTime > 10 then
+						recentErrorLastTime = os.clock()
+						recentErrors = {}
+					end
+
+					local errorString = systemName(system)
+						.. ": "
+						.. (errorValue :: string)
+						.. "\n"
+						.. debug.traceback(thread)
+
+					if not recentErrors[errorString] then
+						task.spawn(error, errorString)
+						warn("The above error will be suppressed for the next 10 seconds")
+						recentErrors[errorString] = true
+					end
+
+					if self.trackErrors then
+						if self._systemErrors[system] == nil then
+							self._systemErrors[system] = {}
+						end
+
+						local errorStorage = self._systemErrors[system]
+						local lastError = errorStorage[#errorStorage]
+
+						if lastError and lastError.error == errorString then
+							lastError.when = os.time()
+						else
+							table.insert(errorStorage, {
+								error = errorString,
+								when = os.time(),
+							})
+
+							if #errorStorage > 100 then
+								table.remove(errorStorage, 1)
+							end
+						end
+					end
+				end
+
+				debug.profileend()
+			end)
+		end
+	end
+
+	return event:Connect(stepSystems)
+
+	--		connections[eventName] = event:Connect(stepSystems)
+	--	end
+	--
+	--	return connections
 end
 
 local EVENT_CONNECT_METHODS = { "Connect", "on", "connect" }

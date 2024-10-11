@@ -1,24 +1,26 @@
 # jecs-topo-runtime
 
 This package does not really depend on the jecs functionality.
-I'm not sure whether this package will eventually be branched out into an abstract topo runtime package.
+This package will probably eventually be branched out into an abstract topo runtime package.
 
-## Setup
+## Basic Setup
 
 ```ts
 const world = new World()
-const loop = new Loop(world, ...whatever other arguments)
+const loop = new Loop(world, ...some other arguments that will be passed to systems)
 
-const connections = loop.begin({
-    default: RunService.Heartbeat,
-})
+const connection = loop.begin(RunService.Heartbeat)
 
-const system = () => {}
+const system = (arguments from loop constructor call) => {
+    // some work
+}
 
 loop.scheduleSystem(system)
 
 // hot reload stuff
 loop.evictSystem(system)
+// or more convenient
+loop.replaceSystem(system, () => {})
 ```
 
 ## Builtin hooks

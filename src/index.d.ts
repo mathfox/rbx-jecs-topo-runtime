@@ -1,9 +1,5 @@
-import type { World } from "@rbxts/jecs";
-
 export interface FrameState {
-	generation: boolean;
 	deltaTime: number;
-	dirtyWorlds: Array<World>;
 }
 
 export interface Node<T extends ReadonlyArray<unknown>> {
@@ -76,6 +72,8 @@ export class Loop<T extends ReadonlyArray<unknown> = ReadonlyArray<any>> {
 			when: number;
 		}
 	>;
+
+	_skipSystems: Map<System, boolean>;
 
 	/**
 	 * Schedules a set of systems based on the constraints they define.
@@ -190,9 +188,12 @@ export class Loop<T extends ReadonlyArray<unknown> = ReadonlyArray<any>> {
 	 * @param events - A map from event name to event objects.
 	 * @return A map from your event names to connection objects.
 	 */
-	begin<T extends { [index: string]: RBXScriptSignal | { Connect: Callback } }>(
-		events: T,
-	): { [P in keyof T]: RBXScriptConnection };
+	//begin<T extends { [index: string]: RBXScriptSignal | { Connect: Callback } }>(
+	//	events: T,
+	//): { [P in keyof T]: RBXScriptConnection };
+	begin<TEvent extends RBXScriptSignal | { Connect: Callback }>(
+		event: TEvent,
+	): ReturnType<TEvent["Connect"]>;
 
 	/**
 	 * Adds a user-defined middleware function that is called during each frame.
