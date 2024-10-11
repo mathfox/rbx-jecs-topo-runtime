@@ -5,22 +5,11 @@
 	"main": "src/init.luau",
 	"types": "src/index.d.ts",
 	"files": ["src"],
-	"scripts": {
-		"build": "rbxtsc --type package",
-		"prepublishOnly": "bun run build"
-	},
 	"repository": {
 		"type": "git",
 		"url": "git+https://github.com/mathfox/rbx-jecs-topo-runtime.git"
 	},
-	"keywords": [
-		"roblox",
-		"roblox-ts",
-		"validation",
-		"typecheck",
-		"valibot",
-		"runtime"
-	],
+	"keywords": ["roblox", "roblox-ts", "topo", "runtime"],
 	"author": {
 		"name": "Ivan Leontev",
 		"url": "https://github.com/mathfox"
@@ -37,8 +26,5 @@
 		"@biomejs/biome": "1.9.3",
 		"@rbxts/compiler-types": "^3.0.0-types.0",
 		"@rbxts/types": "^1.0.805"
-	},
-	"dependencies": {
-		"@rbxts/jecs": "^0.3.2"
 	}
 }
