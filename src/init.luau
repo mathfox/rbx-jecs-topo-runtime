@@ -2,10 +2,6 @@
 --!native
 --!optimize 2
 
---local Jecs = require(script.Parent.Parent.Jecs) :: any
-local Jecs = require(game:GetService("ReplicatedStorage").rbxts_include.node_modules["@rbxts"]["jecs"]["src"])
-local pair = Jecs.pair
-
 ----- Queue start
 
 type QueueProperties<T = any> = {
@@ -69,7 +65,7 @@ end
 
 ----- Queue end
 
-type System = (...any) -> ...any
+type System = (...any) -> ()
 
 type CleanupCallback = (storage: any) -> boolean?
 

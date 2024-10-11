@@ -110,7 +110,7 @@ export class Loop<T extends ReadonlyArray<unknown> = ReadonlyArray<any>> {
 	 *
 	 * @param systems - Array of systems to schedule.
 	 */
-	public scheduleSystems<S extends Array<System<T>>>(systems: S): void;
+	//scheduleSystems<S extends Array<System<T>>>(systems: S): void;
 
 	/**
 	 * Schedules a set of systems based on the constraints they define.
@@ -145,14 +145,14 @@ export class Loop<T extends ReadonlyArray<unknown> = ReadonlyArray<any>> {
 	 *
 	 * @param system - System to schedule.
 	 */
-	public scheduleSystem(system: System<T>): void;
+	scheduleSystem(system: System<T>): void;
 
 	/**
 	 * Schedules a single system. This is an expensive function to call multiple times. Instead, try batch scheduling
 	 * systems with [Loop:scheduleSystems] if possible.
 	 * @param system - System to evict from loop.
 	 */
-	public evictSystem(system: System<T>): void;
+	evictSystem(system: System<T>): void;
 
 	/**
 	 * Replaces an older version of a system with a newer version of the system. Internal system storage (which is used
@@ -160,7 +160,7 @@ export class Loop<T extends ReadonlyArray<unknown> = ReadonlyArray<any>> {
 	 * @param oldSystem - The old system to be replaced.
 	 * @param newSystem - The new system to replace with.
 	 */
-	public replaceSystem(oldSystem: System<T>, newSystem: System<T>): void;
+	//replaceSystem(oldSystem: System<T>, newSystem: System<T>): void;
 
 	/**
 	 *
@@ -190,9 +190,9 @@ export class Loop<T extends ReadonlyArray<unknown> = ReadonlyArray<any>> {
 	 * @param events - A map from event name to event objects.
 	 * @return A map from your event names to connection objects.
 	 */
-	public begin<
-		T extends { [index: string]: RBXScriptSignal | { Connect: Callback } },
-	>(events: T): { [P in keyof T]: RBXScriptConnection };
+	begin<T extends { [index: string]: RBXScriptSignal | { Connect: Callback } }>(
+		events: T,
+	): { [P in keyof T]: RBXScriptConnection };
 
 	/**
 	 * Adds a user-defined middleware function that is called during each frame.
@@ -213,18 +213,18 @@ export class Loop<T extends ReadonlyArray<unknown> = ReadonlyArray<any>> {
 	 * function that actually calls your systems.
 	 * @param middleware - (nextFn: () => void) => () => void
 	 */
-	public addMiddleware(
-		middleware: (nextFn: () => void, eventName: string) => () => void,
-	): void;
+	//addMiddleware(
+	//	middleware: (nextFn: () => void, eventName: string) => () => void,
+	//): void;
 
 	/**
 	 * Sets the Worlds to be used by the Loop for deferring commands, and the Debugger for profiling.
 	 * @param worlds - An array of Worlds or a map of World names to Worlds.
 	 */
-	public setWorlds(worlds: Array<World> | { [index: string]: World }): void;
+	//setWorlds(worlds: Array<World> | { [index: string]: World }): void;
 }
 
-export declare function useDeltaTime(): number;
+export function useDeltaTime(): number;
 
 type ConnectionLike =
 	| { Disconnect(): void }
@@ -240,10 +240,7 @@ type SignalLike<Args extends Array<unknown>> =
 
 type InferSignalParameters<T> = T extends SignalLike<infer U> ? U : never;
 
-export declare function useEvent<
-	I extends Instance,
-	E extends InstanceEventNames<I>,
->(
+export function useEvent<I extends Instance, E extends InstanceEventNames<I>>(
 	instance: I,
 	event: E,
 ): IterableFunction<
@@ -252,17 +249,11 @@ export declare function useEvent<
 	>
 >;
 
-export declare function useEvent<
-	A extends Array<unknown>,
-	E extends SignalLike<A>,
->(
+export function useEvent<A extends Array<unknown>, E extends SignalLike<A>>(
 	discriminator: unknown,
 	event: E,
 ): IterableFunction<
 	LuaTuple<[index: number, ...rest: InferSignalParameters<E>]>
 >;
 
-export declare function useThrottle(
-	seconds: number,
-	discriminator?: unknown,
-): boolean;
+export function useThrottle(seconds: number, discriminator?: unknown): boolean;
