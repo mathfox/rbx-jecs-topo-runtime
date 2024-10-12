@@ -1,32 +1,40 @@
+export type System<TParams extends ReadonlyArray<any> = ReadonlyArray<any>> = (
+	...params: TParams
+) => void;
+
 export interface FrameState {
 	deltaTime: number;
 }
 
-export interface Node<T extends ReadonlyArray<unknown>> {
+export interface Node<TParams extends ReadonlyArray<any>> {
 	frame?: FrameState;
-	currentSystem?: System<T>;
-	system?: System<T>;
+	currentSystem?: System<TParams>;
+	system?: Map<
+		System,
+		{
+			storage: Map<string, any>;
+			cleanupCallback: (storage: any) => boolean | void;
+		}
+	>;
 }
 
-export function start<T extends Array<unknown>>(
-	node: Node<T>,
+export function start<TParams extends ReadonlyArray<any>>(
+	node: Node<TParams>,
 	fn: () => void,
 ): void;
 
-export function useHookState<T>(
+export function useHookState<TStorage>(
 	discriminator?: unknown,
-	cleanupCallback?: (storage: T) => boolean | void,
-): T;
+	cleanupCallback?: (storage: TStorage) => boolean | void,
+): TStorage;
 
 export function useFrameState(): FrameState;
 
-export function useCurrentSystem<T extends Array<unknown>>(): System<T>;
+export function useCurrentSystem<
+	TParams extends ReadonlyArray<any>,
+>(): System<TParams>;
 
 export function withinTopoContext(): boolean;
-
-export type System<TParams extends ReadonlyArray<any> = ReadonlyArray<any>> = (
-	...params: TParams
-) => void;
 
 export interface SystemSamples extends Array<number> {
 	index?: number | undefined;
@@ -42,7 +50,7 @@ export function systemName(system: System): string;
  * Yielding is not allowed in systems. Doing so will result in the system thread being closed early, but it will not
  * affect other systems.
  */
-export class Loop<T extends ReadonlyArray<unknown> = ReadonlyArray<any>> {
+export class Loop<TParams extends ReadonlyArray<any> = ReadonlyArray<any>> {
 	/**
 	 * Creates a new loop. `Loop.new` accepts as arguments the values that will be passed to all of your systems.
 	 *
@@ -58,7 +66,7 @@ export class Loop<T extends ReadonlyArray<unknown> = ReadonlyArray<any>> {
 	 * @param ...dynamic_bundle - Values that will be passed to all of your systems
 	 * @return Loop
 	 */
-	constructor(...dynamic_bundle: T);
+	constructor(...dynamic_bundle: TParams);
 
 	profiling?: Map<System, SystemSamples>;
 
@@ -143,14 +151,14 @@ export class Loop<T extends ReadonlyArray<unknown> = ReadonlyArray<any>> {
 	 *
 	 * @param system - System to schedule.
 	 */
-	scheduleSystem(system: System<T>): void;
+	scheduleSystem(system: System<TParams>): void;
 
 	/**
 	 * Schedules a single system. This is an expensive function to call multiple times. Instead, try batch scheduling
 	 * systems with [Loop:scheduleSystems] if possible.
 	 * @param system - System to evict from loop.
 	 */
-	evictSystem(system: System<T>): void;
+	evictSystem(system: System<TParams>): void;
 
 	/**
 	 * Replaces an older version of a system with a newer version of the system. Internal system storage (which is used
@@ -234,27 +242,38 @@ type ConnectionLike =
 	| { destroy(): void }
 	| (() => void);
 
-type SignalLike<Args extends Array<unknown>> =
-	| { Connect(callback: (...args: Args) => void): ConnectionLike }
-	| { connect(callback: (...args: Args) => void): ConnectionLike }
-	| { on(callback: (...args: Args) => void): ConnectionLike };
+type SignalLike<TArgs extends ReadonlyArray<any>> =
+	| { Connect(callback: (...args: TArgs) => void): ConnectionLike }
+	| { connect(callback: (...args: TArgs) => void): ConnectionLike }
+	| { on(callback: (...args: TArgs) => void): ConnectionLike };
 
-type InferSignalParameters<T> = T extends SignalLike<infer U> ? U : never;
+type InferSignalParameters<TValue> = TValue extends SignalLike<infer TParams>
+	? TParams
+	: never;
 
-export function useEvent<I extends Instance, E extends InstanceEventNames<I>>(
-	instance: I,
-	event: E,
+export function useEvent<
+	TInstance extends Instance,
+	TEvent extends InstanceEventNames<TInstance>,
+>(
+	instance: TInstance,
+	event: TEvent,
 ): IterableFunction<
 	LuaTuple<
-		[index: number, ...rest: InferSignalParameters<InstanceEvents<I>[E]>]
+		[
+			index: number,
+			...rest: InferSignalParameters<InstanceEvents<TInstance>[TEvent]>,
+		]
 	>
 >;
 
-export function useEvent<A extends Array<unknown>, E extends SignalLike<A>>(
+export function useEvent<
+	TParams extends ReadonlyArray<any>,
+	TEvent extends SignalLike<TParams>,
+>(
 	discriminator: unknown,
-	event: E,
+	event: TEvent,
 ): IterableFunction<
-	LuaTuple<[index: number, ...rest: InferSignalParameters<E>]>
+	LuaTuple<[index: number, ...rest: InferSignalParameters<TEvent>]>
 >;
 
 export function useThrottle(seconds: number, discriminator?: unknown): boolean;
