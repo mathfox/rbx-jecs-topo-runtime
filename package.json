@@ -1,6 +1,6 @@
 {
 	"name": "@rbxts/jecs-topo-runtime",
-	"version": "0.0.2",
+	"version": "0.0.3",
 	"description": "A Runtime for Jecs",
 	"main": "src/init.luau",
 	"types": "src/index.d.ts",

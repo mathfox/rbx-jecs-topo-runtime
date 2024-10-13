@@ -166,7 +166,7 @@ export class Loop<TParams extends ReadonlyArray<any> = ReadonlyArray<any>> {
 	 * @param oldSystem - The old system to be replaced.
 	 * @param newSystem - The new system to replace with.
 	 */
-	//replaceSystem(oldSystem: System<T>, newSystem: System<T>): void;
+	replaceSystem(oldSystem: System<TParams>, newSystem: System<TParams>): void;
 
 	/**
 	 *
